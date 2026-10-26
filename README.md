@@ -21,7 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/neayi/Mediawiki-LLM-Cli/main/instal
 The installer downloads the latest release for your system and processor,
 installs it (`%LOCALAPPDATA%\Programs\mediawiki` on Windows, `~/.local/bin` on
 macOS and Linux) and adds that folder to your `PATH`. Open a new terminal
-afterwards. Run it again to update. Set `MEDIAWIKI_VERSION=0.1.0` to install a
+afterwards. Set `MEDIAWIKI_VERSION=0.1.0` to install a
 given version, or `MEDIAWIKI_INSTALL_DIR` to install elsewhere.
 
 Manual installation: download the file for your system from the
@@ -35,6 +35,17 @@ with a browser is blocked by Gatekeeper; unblock it with
 Developers can also use `go install github.com/neayi/Mediawiki-LLM-Cli/cmd/mediawiki@latest`
 (Go 1.26 or later).
 
+To update to the latest release (versions after 0.1.0):
+
+```sh
+mediawiki upgrade        # or: mediawiki --upgrade
+```
+
+It downloads the latest release for your system, checks it against the
+release checksums, and replaces the executable in place. If the executable is
+in a folder you cannot write to, run it with administrator rights or re-run the
+installer.
+
 To uninstall, delete the `mediawiki` executable and the configuration folder
 described below.
 
@@ -46,11 +57,14 @@ Log in once per wiki:
 mediawiki login https://tripleperformance.fr
 ```
 
-This opens the wiki's `Special:BotPasswords` page. Create a bot password there,
-granting at least: *Basic rights*, *Edit existing pages*, *Create, edit, and
-move pages*, *Upload new files*, *Upload, replace, and move files*, and *Delete
-pages* if you need `delete`. Then type the bot username (`YourName@botname`)
-and password when prompted. They are checked, then stored on the machine
+This opens the wiki's `Special:BotPasswords` page (after you press Enter) and
+explains, in the language of your system (French or English), how to create a bot
+password there (the names of the grants to check are shown as the wiki displays them): choose a bot name such as `mediawiki-cli`, then grant
+*High-volume (bot) access*, *Edit existing pages*, *Create, edit, and move
+pages*, *Upload new files*, *Upload, replace, and move files*, *Patrol changes
+to pages* and *Rollback changes to pages* (add *Delete pages, revisions, and
+log entries* to use `mediawiki delete`). Then type the bot username
+(`YourName@mediawiki-cli`) and password when prompted. They are checked, then stored on the machine
 (`~/.config/mediawiki-cli/config.json` on Linux, `~/Library/Application
 Support/mediawiki-cli/config.json` on macOS, `%AppData%\mediawiki-cli\config.json`
 on Windows; override with the `MEDIAWIKI_CLI_CONFIG` environment variable).
@@ -76,6 +90,7 @@ mediawiki delete <page-url> [--reason TEXT]
 mediawiki login  <wiki-url> [--username NAME] [--no-browser]
 mediawiki logout <wiki-url>
 mediawiki help
+mediawiki upgrade
 mediawiki version
 ```
 

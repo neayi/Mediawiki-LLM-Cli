@@ -47,3 +47,11 @@ func TestTitle(t *testing.T) {
 		t.Errorf("pageURL = %q", got)
 	}
 }
+
+func TestNormalizeLanguage(t *testing.T) {
+	for in, want := range map[string]string{"fr_FR.UTF-8": "fr", "fr-FR": "fr", "en_US": "en", "C.UTF-8": "", "POSIX": "", "": ""} {
+		if got := normalizeLanguage(in); got != want {
+			t.Errorf("normalizeLanguage(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -43,8 +43,11 @@ func resolveWiki(cfg *Config, pageURL string, refresh bool) (*Wiki, error) {
 		cfg.Wikis[api] = w
 	}
 	w.Server, w.ArticlePath = info.Server, info.ArticlePath
+	// A protocol-relative server takes the scheme of the API, which was
+	// reached after following redirects (e.g. http to https).
 	if strings.HasPrefix(w.Server, "//") {
-		w.Server = u.Scheme + ":" + w.Server
+		scheme, _, _ := strings.Cut(api, ":")
+		w.Server = scheme + ":" + w.Server
 	}
 	cfg.Hosts[host] = api
 	if err := cfg.save(); err != nil {

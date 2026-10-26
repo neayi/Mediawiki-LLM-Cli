@@ -21,6 +21,15 @@ All code is in `cmd/mediawiki` (package `main`), so that `go install
   `pageInfo`.
 - `site.go` — wiki discovery and URL ↔ title conversion.
 - `config.go` — persisted configuration.
+- `lang*.go` — user language for the login instructions: `LC_ALL`,
+  `LC_MESSAGES`, `LANG`, then the system setting (`AppleLocale` on macOS,
+  preferred UI language on Windows). Only English and French texts exist
+  (`loginTexts` in commands.go); there are no separate translation files.
+- Login instructions are in the user's language, but the labels to click on
+  `Special:BotPasswords` (grants, "Create" button: `botPasswordMessages`) are
+  read from the wiki with `meta=allmessages`, in the wiki's content language,
+  and the link gets `uselang=<that language>` so the page matches. If that
+  fails, the built-in labels of `loginTexts` are used with `uselang=<user language>`.
 
 ## Key behaviors
 
@@ -81,6 +90,12 @@ the Makefile derives it from `git describe`, or takes `VERSION=...`.
   and add it to the user's PATH (shell rc file / user `Path` variable). Files
   downloaded by curl or PowerShell are not quarantined, so there is no
   Gatekeeper or SmartScreen prompt, without code signing.
+- `mediawiki upgrade` (`upgrade.go`) reads the latest tag from the redirect of
+  `releases/latest` (no GitHub API rate limit), downloads
+  `mediawiki-<GOOS>-<GOARCH>[.exe]` and `checksums.txt` from that release,
+  verifies the SHA-256, and renames the new binary over `os.Executable()`
+  (symlinks resolved). On Windows the running exe is renamed to `.old` first;
+  `removeOldExecutable()` deletes it at the start of the next run.
 - `MEDIAWIKI_DOWNLOAD_URL` overrides the download base URL, to test the
   scripts against a local server:
   `make dist && python3 -m http.server 8765 -d dist`, then

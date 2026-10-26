@@ -20,6 +20,7 @@ Usage:
   mediawiki upload <file-page-url> <local-file> [--description FILE] [--summary TEXT] [--ignore-warnings]
   mediawiki rename <page-url> <new-page-url> [--reason TEXT] [--no-redirect]
   mediawiki delete <page-url> [--reason TEXT]
+  mediawiki upgrade                 (or --upgrade: install the latest release)
   mediawiki version
 
 A file argument of "-" reads from standard input.
@@ -43,16 +44,18 @@ type command struct {
 }
 
 var commands = map[string]command{
-	"login":  {1, []string{"username"}, []string{"no-browser"}, cmdLogin},
-	"logout": {1, nil, nil, cmdLogout},
-	"read":   {1, nil, nil, cmdRead},
-	"write":  {2, []string{"content-model", "summary"}, nil, cmdWrite},
-	"upload": {2, []string{"description", "summary"}, []string{"ignore-warnings"}, cmdUpload},
-	"rename": {2, []string{"reason"}, []string{"no-redirect"}, cmdRename},
-	"delete": {1, []string{"reason"}, nil, cmdDelete},
+	"login":   {1, []string{"username"}, []string{"no-browser"}, cmdLogin},
+	"logout":  {1, nil, nil, cmdLogout},
+	"read":    {1, nil, nil, cmdRead},
+	"write":   {2, []string{"content-model", "summary"}, nil, cmdWrite},
+	"upload":  {2, []string{"description", "summary"}, []string{"ignore-warnings"}, cmdUpload},
+	"rename":  {2, []string{"reason"}, []string{"no-redirect"}, cmdRename},
+	"delete":  {1, []string{"reason"}, nil, cmdDelete},
+	"upgrade": {0, nil, nil, cmdUpgrade},
 }
 
 func main() {
+	removeOldExecutable()
 	if len(os.Args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -65,6 +68,8 @@ func main() {
 	case "version", "--version":
 		fmt.Println("mediawiki", version)
 		return
+	case "--upgrade":
+		name = "upgrade"
 	}
 
 	cmd, ok := commands[name]

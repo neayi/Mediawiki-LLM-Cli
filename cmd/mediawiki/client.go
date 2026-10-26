@@ -236,3 +236,43 @@ func (c *Client) pageInfo(title string) (*pageInfo, error) {
 	}
 	return &p, nil
 }
+
+// messages returns the content language of the wiki and the text of the given
+// interface messages in that language. It fails if any message is missing.
+func (c *Client) messages(names []string) (string, map[string]string, error) {
+	body, err := c.get(url.Values{
+		"action":     {"query"},
+		"meta":       {"siteinfo|allmessages"},
+		"ammessages": {strings.Join(names, "|")},
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	var r struct {
+		Query struct {
+			General struct {
+				Lang string `json:"lang"`
+			} `json:"general"`
+			AllMessages []struct {
+				Name    string `json:"name"`
+				Content string `json:"content"`
+				Missing bool   `json:"missing"`
+			} `json:"allmessages"`
+		} `json:"query"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return "", nil, err
+	}
+	msgs := map[string]string{}
+	for _, m := range r.Query.AllMessages {
+		if !m.Missing && m.Content != "" {
+			msgs[m.Name] = m.Content
+		}
+	}
+	for _, n := range names {
+		if _, ok := msgs[n]; !ok {
+			return "", nil, fmt.Errorf("message %s not found", n)
+		}
+	}
+	return r.Query.General.Lang, msgs, nil
+}

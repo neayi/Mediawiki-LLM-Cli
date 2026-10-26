@@ -52,33 +52,52 @@ func cmdLogin(a *args) error {
 		return err
 	}
 
-	link := w.pageURL("Special:BotPasswords")
-	fmt.Printf(`To use this tool, create a bot password on %s:
-
-  %s
-
-Give the bot a name (e.g. "cli") and grant it at least:
-  - Basic rights
-  - Edit existing pages
-  - Create, edit, and move pages
-  - Upload new files / Upload, replace, and move files
-  - Delete pages, revisions, and log entries (for "mediawiki delete")
-
-The wiki then shows a username like "YourName@cli" and a password.
-
-`, w.Server, link)
-	if !a.bools["no-browser"] {
-		openBrowser(link)
-	}
-
 	in := bufio.NewReader(os.Stdin)
+	// The instructions follow the language of the system, but the labels of
+	// the grants and buttons to click are read from the wiki in its own
+	// language, and uselang shows the page in that language so that they match.
+	t := loginTexts["en"]
+	if strings.HasPrefix(userLanguage(), "fr") {
+		t = loginTexts["fr"]
+	}
+	pageLang, labels := t.lang, t.labels
+	if lang, msgs, err := newClient(w.API).messages(botPasswordMessages); err == nil {
+		pageLang, labels = lang, msgs
+	}
+	link := w.pageURL("Special:BotPasswords")
+	if strings.Contains(link, "?") {
+		link += "&uselang=" + pageLang
+	} else {
+		link += "?uselang=" + pageLang
+	}
+	fmt.Printf(t.intro, w.Server)
+	// Wait for the user before opening the browser, unless the input is piped
+	// (it then holds the password).
+	opened := false
+	if !a.bools["no-browser"] && term.IsTerminal(int(os.Stdin.Fd())) {
+		if _, err := prompt(in, t.pressEnter); err != nil {
+			return err
+		}
+		opened = openBrowser(link) == nil
+	}
+	if opened {
+		fmt.Printf(t.ifNotOpened, link)
+	} else {
+		fmt.Printf(t.openManually, link)
+	}
+	var grants strings.Builder
+	for _, m := range botPasswordMessages[1:] {
+		fmt.Fprintf(&grants, "       - %s\n", labels[m])
+	}
+	fmt.Printf(t.steps, labels[botPasswordMessages[0]], grants.String())
+
 	username := a.vals["username"]
 	if username == "" {
-		if username, err = prompt(in, "Bot username: "); err != nil {
+		if username, err = prompt(in, t.username); err != nil {
 			return err
 		}
 	}
-	password, err := promptPassword(in, "Bot password: ")
+	password, err := promptPassword(in, t.password)
 	if err != nil {
 		return err
 	}
@@ -425,9 +444,9 @@ func promptPassword(in *bufio.Reader, label string) (string, error) {
 	return strings.TrimSpace(string(b)), err
 }
 
-// openBrowser opens url in the default browser, on a best-effort basis: the
-// link is printed anyway.
-func openBrowser(url string) {
+// openBrowser opens url in the default browser. It reports whether the
+// browser could be launched, not whether the page was displayed.
+func openBrowser(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -437,5 +456,86 @@ func openBrowser(url string) {
 	default:
 		cmd = exec.Command("xdg-open", url)
 	}
-	_ = cmd.Start()
+	return cmd.Start()
+}
+
+// botPasswordMessages are the MediaWiki messages for the labels the user
+// sees on Special:BotPasswords: the create button, then the grants needed.
+var botPasswordMessages = []string{
+	"botpasswords-label-create",
+	"grant-highvolume",
+	"grant-editpage",
+	"grant-createeditmovepage",
+	"grant-uploadfile",
+	"grant-uploadeditmovefile",
+	"grant-patrol",
+	"grant-rollback",
+}
+
+// loginTexts holds the login instructions, by language. labels are used when
+// the wiki's own labels cannot be read; they are the botPasswordMessages in
+// lang.
+var loginTexts = map[string]struct {
+	intro, pressEnter, ifNotOpened, openManually, steps, username, password string
+	lang                                                                    string
+	labels                                                                  map[string]string
+}{
+	"en": {
+		intro: `To use this tool on %s, you need to create a bot password on the wiki.
+The bot password creation page will open in your browser (log in to the wiki first if needed).
+`,
+		pressEnter:   "Press Enter to open it...",
+		ifNotOpened:  "\nIf the page did not open, copy this address into your browser:\n\n  %s\n",
+		openManually: "\nOpen this address in your browser:\n\n  %s\n",
+		steps: `
+On this page:
+  1. Choose a name for the bot (for example mediawiki-cli), then click "%[1]s".
+  2. Check the following grants, then click "%[1]s":
+%[2]s  3. Copy the username shown (of the form YourName@mediawiki-cli) and the
+     password, and paste them below.
+
+`,
+		username: "Bot username: ",
+		password: "Bot password: ",
+		lang:     "en",
+		labels: map[string]string{
+			"botpasswords-label-create": "Create",
+			"grant-highvolume":          "High-volume (bot) access",
+			"grant-editpage":            "Edit existing pages",
+			"grant-createeditmovepage":  "Create, edit, and move pages",
+			"grant-uploadfile":          "Upload new files",
+			"grant-uploadeditmovefile":  "Upload, replace, and move files",
+			"grant-patrol":              "Patrol changes to pages",
+			"grant-rollback":            "Rollback changes to pages",
+		},
+	},
+	"fr": {
+		intro: `Pour utiliser cet outil sur %s, vous devez créer un mot de passe de robot sur le wiki.
+La page de création des mots de passe de robot va s'ouvrir dans votre navigateur (connectez-vous d'abord au wiki si nécessaire).
+`,
+		pressEnter:   "Appuyez sur Entrée pour l'ouvrir...",
+		ifNotOpened:  "\nSi la page ne s'est pas ouverte, copiez cette adresse dans votre navigateur :\n\n  %s\n",
+		openManually: "\nOuvrez cette adresse dans votre navigateur :\n\n  %s\n",
+		steps: `
+Sur cette page :
+  1. Choisissez un nom pour le robot (par exemple mediawiki-cli), puis cliquez sur « %[1]s ».
+  2. Cochez les droits suivants, puis cliquez sur « %[1]s » :
+%[2]s  3. Copiez l'identifiant affiché (de la forme VotreNom@mediawiki-cli) et le
+     mot de passe, puis collez-les ci-dessous.
+
+`,
+		username: "Identifiant du robot : ",
+		password: "Mot de passe du robot : ",
+		lang:     "fr",
+		labels: map[string]string{
+			"botpasswords-label-create": "Créer",
+			"grant-highvolume":          "Accès à haut volume (robot)",
+			"grant-editpage":            "Modifier des pages existantes",
+			"grant-createeditmovepage":  "Créer, modifier et déplacer des pages",
+			"grant-uploadfile":          "Téléverser de nouveaux fichiers",
+			"grant-uploadeditmovefile":  "Téléverser, remplacer et renommer des fichiers",
+			"grant-patrol":              "Vérifier les modifications de pages",
+			"grant-rollback":            "Révoquer des modifications sur des pages",
+		},
+	},
 }
