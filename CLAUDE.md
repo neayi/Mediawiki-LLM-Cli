@@ -74,9 +74,8 @@ the Makefile derives it from `git describe`, or takes `VERSION=...`.
 
 ## Releases and installers
 
-- `.github/workflows/ci.yml` runs `make test` and `make dist` on every push to
-  `main` and on pull requests.
-- `.github/workflows/release.yml` runs on a `v*` tag: it builds with
+- There is no CI on pushes: run `make test` locally before pushing.
+- `.github/workflows/release.yml` (the only workflow) runs on a `v*` tag: it builds with
   `make dist VERSION=<tag without v>` and attaches the binaries and
   `checksums.txt` to the tag's GitHub release, creating it if needed (a release
   created in the GitHub interface already exists when the workflow runs). To
