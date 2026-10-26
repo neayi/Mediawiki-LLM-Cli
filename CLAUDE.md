@@ -68,8 +68,11 @@ the Makefile derives it from `git describe`, or takes `VERSION=...`.
 - `.github/workflows/ci.yml` runs `make test` and `make dist` on every push to
   `main` and on pull requests.
 - `.github/workflows/release.yml` runs on a `v*` tag: it builds with
-  `make dist VERSION=<tag without v>` and publishes a GitHub release with the
-  binaries and `checksums.txt`. To release: `git tag v0.2.0 && git push origin v0.2.0`.
+  `make dist VERSION=<tag without v>` and attaches the binaries and
+  `checksums.txt` to the tag's GitHub release, creating it if needed (a release
+  created in the GitHub interface already exists when the workflow runs). To
+  release: `git tag v0.2.0 && git push origin v0.2.0`, or create the release on
+  GitHub. To rebuild an existing tag: `gh workflow run release.yml -f tag=v0.2.0`.
 - Release asset names carry no version (`mediawiki-<os>-<arch>[.exe]`) so that
   `releases/latest/download/<name>` always points to the latest version. The
   install scripts rely on these names: keep them in sync with the Makefile.

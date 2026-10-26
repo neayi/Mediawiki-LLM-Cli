@@ -1,11 +1,18 @@
-# Builds the binaries for every platform and publishes them as a GitHub
-# release when a version tag is pushed:
+# Builds the binaries for every platform and attaches them to the GitHub
+# release of a version tag. Triggered by pushing a tag, or by creating a
+# release in the GitHub interface (which creates the tag):
 #   git tag v0.1.0 && git push origin v0.1.0
+# It can also be run by hand on an existing tag (Actions > Release > Run workflow).
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and publish, e.g. v0.1.0"
+        required: true
 
 permissions:
   contents: write
@@ -13,14 +20,23 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - run: make test
-      - run: make dist VERSION="${GITHUB_REF_NAME#v}"
+      - run: make dist VERSION="${TAG#v}"
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "$TAG" --generate-notes
+          fi
