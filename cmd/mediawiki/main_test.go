@@ -55,3 +55,25 @@ func TestNormalizeLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestCompareVersions(t *testing.T) {
+	tests := []struct {
+		a, b string
+		c    int
+		ok   bool
+	}{
+		{"0.1.2", "0.1.1", 1, true},
+		{"0.1.1", "0.1.2", -1, true},
+		{"0.1.10", "0.1.9", 1, true},
+		{"0.1.2", "v0.1.2", 0, true},
+		{"0.1.2-3-gabcdef", "0.1.2", 0, true},
+		{"0.1.2-dirty", "0.2.0", -1, true},
+		{"dev", "0.1.2", 0, false},
+	}
+	for _, tt := range tests {
+		c, ok := compareVersions(tt.a, tt.b)
+		if c != tt.c || ok != tt.ok {
+			t.Errorf("compareVersions(%q, %q) = %d, %v; want %d, %v", tt.a, tt.b, c, ok, tt.c, tt.ok)
+		}
+	}
+}

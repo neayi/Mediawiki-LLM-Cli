@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -29,6 +30,12 @@ func cmdUpgrade(a *args) error {
 	latest := strings.TrimPrefix(tag, "v")
 	if latest == version {
 		fmt.Printf("mediawiki %s is already the latest version.\n", version)
+		return nil
+	}
+	// GitHub may still redirect releases/latest to the previous release for a
+	// while after a new one is published: never go back to an older version.
+	if c, ok := compareVersions(version, latest); ok && c >= 0 {
+		fmt.Printf("mediawiki %s is up to date (latest release: %s).\n", version, latest)
 		return nil
 	}
 
@@ -89,6 +96,43 @@ func latestTag() (string, error) {
 		return "", fmt.Errorf("unexpected response from %s: %s", req.URL, resp.Status)
 	}
 	return path.Base(loc), nil
+}
+
+// compareVersions compares two versions such as "0.1.2" or "0.1.2-3-gabcdef"
+// (git describe) on their numeric part. ok is false if either cannot be
+// parsed, e.g. "dev".
+func compareVersions(a, b string) (c int, ok bool) {
+	pa, oka := parseVersion(a)
+	pb, okb := parseVersion(b)
+	if !oka || !okb {
+		return 0, false
+	}
+	for i := range pa {
+		if pa[i] != pb[i] {
+			if pa[i] < pb[i] {
+				return -1, true
+			}
+			return 1, true
+		}
+	}
+	return 0, true
+}
+
+func parseVersion(v string) ([3]int, bool) {
+	var n [3]int
+	v, _, _ = strings.Cut(strings.TrimPrefix(v, "v"), "-")
+	parts := strings.Split(v, ".")
+	if len(parts) != 3 {
+		return n, false
+	}
+	for i, p := range parts {
+		x, err := strconv.Atoi(p)
+		if err != nil || x < 0 {
+			return n, false
+		}
+		n[i] = x
+	}
+	return n, true
 }
 
 func download(url string) ([]byte, error) {

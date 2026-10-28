@@ -42,7 +42,8 @@ mediawiki upgrade        # or: mediawiki --upgrade
 ```
 
 It downloads the latest release for your system, checks it against the
-release checksums, and replaces the executable in place. If the executable is
+release checksums, and replaces the executable in place. It never replaces a
+version with an older one. If the executable is
 in a folder you cannot write to, run it with administrator rights or re-run the
 installer.
 
