@@ -20,6 +20,7 @@ Usage:
   mediawiki upload <file-page-url> <local-file> [--description FILE] [--summary TEXT] [--ignore-warnings]
   mediawiki rename <page-url> <new-page-url> [--reason TEXT] [--no-redirect]
   mediawiki delete <page-url> [--reason TEXT]
+  mediawiki api    "<api-url>?action=...&param=value"   (any API action; prints the JSON response)
   mediawiki upgrade                 (or --upgrade: install the latest release)
   mediawiki version
 
@@ -33,6 +34,7 @@ Examples:
   mediawiki upload https://tripleperformance.fr/wiki/File:Une_image.jpg image.jpg --description description.wiki
   mediawiki rename https://tripleperformance.fr/wiki/Une_page https://tripleperformance.fr/wiki/Une_autre_page
   mediawiki delete https://tripleperformance.fr/wiki/Une_page
+  mediawiki api "https://wiki.tripleperformance.fr/api.php?action=linktitles&page=Une_page"
 `
 
 // command describes a subcommand: its positional arguments and options.
@@ -51,6 +53,7 @@ var commands = map[string]command{
 	"upload":  {2, []string{"description", "summary"}, []string{"ignore-warnings"}, cmdUpload},
 	"rename":  {2, []string{"reason"}, []string{"no-redirect"}, cmdRename},
 	"delete":  {1, []string{"reason"}, nil, cmdDelete},
+	"api":     {1, nil, nil, cmdAPI},
 	"upgrade": {0, nil, nil, cmdUpgrade},
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -401,6 +402,57 @@ func cmdDelete(a *args) error {
 	}
 	fmt.Printf("Deleted %q\n", r.Delete.Title)
 	return nil
+}
+
+// cmdAPI calls any API action given as an api.php URL, e.g.
+// https://host/api.php?action=linktitles&page=Main_Page. The wiki is
+// identified by the host only; parameters come from the query string. Actions
+// that take a token are posted with a token of the right type.
+func cmdAPI(a *args) error {
+	u, err := url.Parse(a.pos[0])
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("%q is not an API URL (expected https://host/api.php?action=...)", a.pos[0])
+	}
+	params := u.Query()
+	action := params.Get("action")
+	if action == "" {
+		return fmt.Errorf("no action parameter in %q", a.pos[0])
+	}
+	w, c, err := session(u.Scheme+"://"+u.Host+"/", false)
+	if err != nil {
+		return err
+	}
+	m, err := c.moduleInfo(action)
+	if err != nil {
+		return err
+	}
+	if m.TokenType != "" && params.Get("token") == "" {
+		if w.Username == "" {
+			return fmt.Errorf("action %s needs a token, but you are not logged in to %s; run: mediawiki login %s", action, w.Server, w.Server)
+		}
+		token, err := c.token(m.TokenType)
+		if err != nil {
+			return err
+		}
+		params.Set("token", token)
+		params.Set("assert", "user")
+	}
+	var body []byte
+	if m.MustBePosted || params.Has("token") {
+		body, err = c.post(params)
+	} else {
+		body, err = c.get(params)
+	}
+	if err != nil {
+		return err
+	}
+	var out bytes.Buffer
+	if err := json.Indent(&out, body, "", "  "); err != nil {
+		return err
+	}
+	out.WriteByte('\n')
+	_, err = out.WriteTo(os.Stdout)
+	return err
 }
 
 func summary(s string) string {

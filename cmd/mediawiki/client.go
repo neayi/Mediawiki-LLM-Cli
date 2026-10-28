@@ -173,25 +173,37 @@ func (c *Client) csrfToken() (string, error) {
 	if c.csrf != "" {
 		return c.csrf, nil
 	}
-	body, err := c.get(url.Values{"action": {"query"}, "meta": {"tokens"}})
+	token, err := c.token("csrf")
+	if err != nil {
+		return "", err
+	}
+	c.csrf = token
+	return c.csrf, nil
+}
+
+// token returns a token of the given type (csrf, patrol, rollback…) for the
+// logged-in user.
+func (c *Client) token(kind string) (string, error) {
+	body, err := c.get(url.Values{"action": {"query"}, "meta": {"tokens"}, "type": {kind}})
 	if err != nil {
 		return "", err
 	}
 	var t struct {
 		Query struct {
-			Tokens struct {
-				CSRFToken string `json:"csrftoken"`
-			} `json:"tokens"`
+			Tokens map[string]string `json:"tokens"`
 		} `json:"query"`
 	}
 	if err := json.Unmarshal(body, &t); err != nil {
 		return "", err
 	}
-	if t.Query.Tokens.CSRFToken == "" || t.Query.Tokens.CSRFToken == "+\\" {
-		return "", fmt.Errorf("not logged in: the wiki returned an anonymous edit token")
+	token := t.Query.Tokens[kind+"token"]
+	if token == "" {
+		return "", fmt.Errorf("the wiki returned no %s token", kind)
 	}
-	c.csrf = t.Query.Tokens.CSRFToken
-	return c.csrf, nil
+	if token == "+\\" {
+		return "", fmt.Errorf("not logged in: the wiki returned an anonymous %s token", kind)
+	}
+	return token, nil
 }
 
 // postWithToken performs a write action as the logged-in user.
@@ -275,4 +287,44 @@ func (c *Client) messages(names []string) (string, map[string]string, error) {
 		}
 	}
 	return r.Query.General.Lang, msgs, nil
+}
+
+// moduleInfo describes how an API action module must be called.
+type moduleInfo struct {
+	MustBePosted bool
+	TokenType    string // empty if the module takes no token
+}
+
+// moduleInfo asks the wiki (action=paraminfo) whether an action must be
+// posted and which token it needs. Unknown actions return a zero moduleInfo.
+func (c *Client) moduleInfo(action string) (*moduleInfo, error) {
+	body, err := c.get(url.Values{"action": {"paraminfo"}, "modules": {action}})
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		ParamInfo struct {
+			Modules []struct {
+				MustBePosted bool `json:"mustbeposted"`
+				Parameters   []struct {
+					Name      string `json:"name"`
+					TokenType string `json:"tokentype"`
+				} `json:"parameters"`
+			} `json:"modules"`
+		} `json:"paraminfo"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return nil, err
+	}
+	var m moduleInfo
+	if len(r.ParamInfo.Modules) > 0 {
+		mod := r.ParamInfo.Modules[0]
+		m.MustBePosted = mod.MustBePosted
+		for _, p := range mod.Parameters {
+			if p.Name == "token" {
+				m.TokenType = p.TokenType
+			}
+		}
+	}
+	return &m, nil
 }

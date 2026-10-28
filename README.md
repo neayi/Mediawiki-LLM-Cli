@@ -87,6 +87,7 @@ mediawiki write  <page-url> <file> [--content-model MODEL] [--summary TEXT]
 mediawiki upload <file-page-url> <local-file> [--description FILE] [--summary TEXT] [--ignore-warnings]
 mediawiki rename <page-url> <new-page-url> [--reason TEXT] [--no-redirect]
 mediawiki delete <page-url> [--reason TEXT]
+mediawiki api    "<api-url>?action=...&param=value"
 mediawiki login  <wiki-url> [--username NAME] [--no-browser]
 mediawiki logout <wiki-url>
 mediawiki help
@@ -152,6 +153,25 @@ mediawiki delete https://tripleperformance.fr/wiki/Une_page --reason "Duplicate"
 ```
 
 Output: `Deleted "<title>"`.
+
+### api — call any API action
+
+```sh
+mediawiki api "https://wiki.tripleperformance.fr/api.php?action=linktitles&page=Une_page"
+mediawiki api "https://wiki.tripleperformance.fr/api.php?action=query&list=categorymembers&cmtitle=Catégorie:Élevage"
+```
+
+- The argument is an `api.php` URL with the parameters of the call in its
+  query string. Quote it: `&` is special in the shell. The wiki is identified
+  by the host; the path is ignored and the wiki's API endpoint is used.
+- The tool asks the wiki (`action=paraminfo`) how the action must be called:
+  actions that must be posted are sent with POST, and actions that take a
+  token get one of the right type (`csrf`, `watch`, `patrol`…) automatically,
+  with `assert=user`. These require a login; others work anonymously on public
+  wikis.
+- `format=json&formatversion=2` is always used.
+- Output: the JSON response, indented. API errors are printed on standard error
+  as `mediawiki api: <info> (<code>)`, with status 1.
 
 ### General rules
 
